@@ -192,3 +192,25 @@ test_bulk_type!(datetime2_7(
     100,
     vec![NaiveDateTime::from_timestamp_opt(1658524194, 123456789).unwrap(); 100].into_iter()
 ));
+
+#[test_on_runtimes]
+async fn bulk_load_delimited_identifiers<S>(mut conn: tiberius::Client<S>) -> Result<()>
+    where
+        S: AsyncRead + AsyncWrite + Unpin + Send,
+{
+    let table = format!("##{}", random_table().await);
+
+    conn.execute(format!("CREATE TABLE {} (a char(1), [b b] char(1), [c]]c] char(1))", table), &[])
+        .await?;
+
+    // confirm that we can do an insert into a table whose columns names must be delimited
+    let mut bulk_load = conn.bulk_insert(&table).await?;
+    let mut row = TokenRow::with_capacity(3);
+    row.push("a".into_sql());
+    row.push("b".into_sql());
+    row.push("c".into_sql());
+    bulk_load.send(row).await?;
+    bulk_load.finalize().await?;
+
+    Ok(())
+}
